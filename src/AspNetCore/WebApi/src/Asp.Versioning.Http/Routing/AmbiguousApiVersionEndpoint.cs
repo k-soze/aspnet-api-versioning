@@ -17,27 +17,14 @@ internal sealed class AmbiguousApiVersionEndpoint : Endpoint
 
     private static Task OnExecute( HttpContext context, ILogger logger )
     {
-        var services = context.RequestServices;
-        var factory = services.GetRequiredService<IProblemDetailsFactory>();
-        var apiVersions = context.ApiVersioningFeature().RawRequestedApiVersions;
-        var (type, title) = ProblemDetailsDefaults.Ambiguous;
-        var detail = string.Format(
-            CultureInfo.CurrentCulture,
-            CommonSR.MultipleDifferentApiVersionsRequested,
-            string.Join( ", ", apiVersions ) );
-        var problem = factory.CreateProblemDetails(
-            context.Request,
-            StatusCodes.Status400BadRequest,
-            title,
-            type,
-            detail );
+        var errorContextFactory = context.RequestServices.GetRequiredService<IApiVersionErrorContextFactory>();
+        var errorContextWriter = context.RequestServices.GetRequiredService<IApiVersionErrorContextWriter>();
+        var errorContext = errorContextFactory.CreateForAmbiguousApiVersion( context );
+        if ( errorContextWriter.CanWrite( errorContext ) )
+        {
+            return errorContextWriter.WriteAsync( errorContext );
+        }
 
-        logger.ApiVersionAmbiguous( apiVersions.ToArray() );
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
-
-        return context.Response.WriteAsJsonAsync(
-            problem,
-            options: default,
-            contentType: ProblemDetailsDefaults.MediaType.Json );
+        return Task.CompletedTask;
     }
 }

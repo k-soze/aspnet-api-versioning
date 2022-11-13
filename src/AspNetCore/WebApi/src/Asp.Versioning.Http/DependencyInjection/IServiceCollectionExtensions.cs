@@ -55,6 +55,8 @@ public static partial class IServiceCollectionExtensions
 #endif
         services.TryAddSingleton<IApiVersionParser, ApiVersionParser>();
         services.TryAddSingleton<IProblemDetailsFactory, DefaultProblemDetailsFactory>();
+        services.TryAddSingleton<IApiVersionErrorContextFactory, ApiVersionErrorContextFactory>();
+        services.TryAddSingleton<IApiVersionErrorContextWriter, ProblemDetailsApiVersionErrorContextWriter>();
         services.Add( Singleton( sp => sp.GetRequiredService<IOptions<ApiVersioningOptions>>().Value.ApiVersionReader ) );
         services.Add( Singleton( sp => (IApiVersionParameterSource) sp.GetRequiredService<IOptions<ApiVersioningOptions>>().Value.ApiVersionReader ) );
         services.Add( Singleton( sp => sp.GetRequiredService<IOptions<ApiVersioningOptions>>().Value.ApiVersionSelector ) );

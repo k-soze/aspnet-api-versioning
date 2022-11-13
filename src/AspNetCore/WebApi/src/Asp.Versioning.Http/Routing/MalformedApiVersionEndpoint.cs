@@ -18,29 +18,17 @@ internal sealed class MalformedApiVersionEndpoint : Endpoint
 
     private static Task OnExecute( HttpContext context, ILogger logger )
     {
-        var services = context.RequestServices;
-        var factory = services.GetRequiredService<IProblemDetailsFactory>();
-        var requestUrl = new Uri( context.Request.GetDisplayUrl() ).SafeFullPath();
         var requestedVersion = context.ApiVersioningFeature().RawRequestedApiVersion;
-        var (type, title) = ProblemDetailsDefaults.Invalid;
-        var detail = string.Format(
-            CultureInfo.CurrentCulture,
-            SR.VersionedResourceNotSupported,
-            requestUrl,
-            requestedVersion );
-        var problem = factory.CreateProblemDetails(
-            context.Request,
-            StatusCodes.Status400BadRequest,
-            title,
-            type,
-            detail );
 
+        var errorContextFactory = context.RequestServices.GetRequiredService<IApiVersionErrorContextFactory>();
+        var errorContextWriter = context.RequestServices.GetRequiredService<IApiVersionErrorContextWriter>();
+        var errorContext = errorContextFactory.CreateForMalformedApiVersion( context );
         logger.ApiVersionInvalid( requestedVersion );
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        if ( errorContextWriter.CanWrite( errorContext ) )
+        {
+            return errorContextWriter.WriteAsync( errorContext );
+        }
 
-        return context.Response.WriteAsJsonAsync(
-            problem,
-            options: default,
-            contentType: ProblemDetailsDefaults.MediaType.Json );
+        return Task.CompletedTask;
     }
 }

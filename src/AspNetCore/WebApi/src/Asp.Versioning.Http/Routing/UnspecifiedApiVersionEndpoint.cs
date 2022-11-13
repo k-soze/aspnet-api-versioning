@@ -16,15 +16,9 @@ internal sealed class UnspecifiedApiVersionEndpoint : Endpoint
 
     private static Task OnExecute( HttpContext context, string[]? candidateEndpoints, ILogger logger )
     {
-        var services = context.RequestServices;
-        var factory = services.GetRequiredService<IProblemDetailsFactory>();
-        var (type, title) = ProblemDetailsDefaults.Unspecified;
-        var problem = factory.CreateProblemDetails(
-            context.Request,
-            StatusCodes.Status400BadRequest,
-            title,
-            type,
-            SR.ApiVersionUnspecified );
+        var errorContextFactory = context.RequestServices.GetRequiredService<IApiVersionErrorContextFactory>();
+        var errorContextWriter = context.RequestServices.GetRequiredService<IApiVersionErrorContextWriter>();
+        var errorContext = errorContextFactory.CreateForMalformedApiVersion( context );
 
         if ( candidateEndpoints == null || candidateEndpoints.Length == 0 )
         {
@@ -35,11 +29,11 @@ internal sealed class UnspecifiedApiVersionEndpoint : Endpoint
             logger.ApiVersionUnspecifiedWithCandidates( candidateEndpoints );
         }
 
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        if ( errorContextWriter.CanWrite( errorContext ) )
+        {
+            return errorContextWriter.WriteAsync( errorContext );
+        }
 
-        return context.Response.WriteAsJsonAsync(
-            problem,
-            options: default,
-            contentType: ProblemDetailsDefaults.MediaType.Json );
+        return Task.CompletedTask;
     }
 }
